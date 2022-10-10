@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+
+var app = require("../app");
+var fs = require("fs");
+var http = require("http");
+var https = require("https");
+
+var server;
+var users = {};
+var addresses = {};
+if (process.env.NODE_ENV === "test") {
+  const https_options = {
+    key: fs.readFileSync("/etc/letsencrypt/live/$DOMAIN/privkey.pem"),
+    cert: fs.readFileSync("certificate.crt"),
+  };
+  app.set("port", 443);
+  server = https.createServer(https_options, app).listen(443);
+} else {
+  var port = normalizePort(process.env.PORT || "3000");
+  app.set("port", port);
+  server = http.createServer(app);
+  server.listen(port);
+  var io = require("socket.io")(server, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
+  });
+  io.on("connection", function (connection) {
+    console.log("New user connected");
+    connection.on("LOGIN", (data) => {
+      data = JSON.parse(data);
+      console.log("User logged", data.address, data.url);
+      users[data.address] = {
+        connection: connection,
+        url: data.url,
+        status: "AVAILABLE",
+      };
+      if (data.url && data.url !== null) {
+        addresses[data.url] = data.address;
+      }
+      connection.join(data.address);
+    });
+
+    connection.on("OFFER_CALL", (data) => {
+      console.log(data);
+      data = JSON.parse(data);
+      console.log("offering to", data.to);
+      var to =
+        data.to.search(".") != -1 && addresses[data.to]
+          ? addresses[data.to]
+          : data.to;
+      if (users[to] && users[to].status === "AVAILABLE") {
+        //users[to].status = "BUSY";
+        //users[data.from].status = "BUSY";
+        connection.to(to).emit("OFFER_CALL", data);
+      } else connection.emit("CALL_BUSY", data);
+    });
+
+    connection.on("ACCEPT_CALL", (data) => {
+      data = JSON.parse(data);
+      console.log("accepting to", data.to);
+      console.log(data);
+      connection.to(data.from).emit("ACCEPT_CALL", data);
+    });
+
+    connection.on("DECLINE_CALL", (data) => {
+      data = JSON.parse(data);
+      console.log("leaving", data.to);
+      users[data.to].status = "AVAILABLE";
+      users[data.from].status = "AVAILABLE";
+      connection.to(data.to).emit("DECLINE_CALL", data);
+    });
+
+    connection.on("close", function () {
+      if (connection.name) {
+        delete users[connection.name];
+
+        if (connection.otherName) {
+          console.log("Disconnecting from ", connection.otherName);
+          var conn = users[connection.otherName];
+          conn.otherName = null;
+
+          if (conn != null) {
+            sendTo(conn, {
+              type: "leave",
+            });
+          }
+        }
+      }
+    });
+
+    connection.send("Hello world");
+  });
+}
+
+server.on("error", onError);
+server.on("listening", onListening);
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    return val;
+  }
+
+  if (port >= 0) {
+    return port;
+  }
+
+  return false;
+}
+
+function onError(error) {
+  if (error.syscall !== "listen") {
+    throw error;
+  }
+
+  var bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
+
+  switch (error.code) {
+    case "EACCES":
+      console.error(bind + " requires elevated privileges");
+      process.exit(1);
+      break;
+    case "EADDRINUSE":
+      console.error(bind + " is already in use");
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+  console.log("Listening on " + bind);
+}
