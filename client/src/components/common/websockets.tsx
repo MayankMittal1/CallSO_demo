@@ -71,7 +71,7 @@ export default ({ children }: any) => {
   };
 
   if (!socket) {
-    socket = io.connect("http://localhost:3000");
+    socket = io.connect();
     console.log("socket connecting");
 
     socket.on("CALL_BUSY", (msg: any) => {
