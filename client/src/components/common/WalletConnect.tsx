@@ -71,7 +71,7 @@ const WalletConnect = () => {
       >
         {url ? url : ellipseAddress(address, 5)}
       </Button>
-      <Button disabled style={{ borderRadius: "12px" }} onClick={onDisconnect}>
+      <Button style={{ borderRadius: "12px" }} onClick={onDisconnect}>
         Disconnect
       </Button>
     </>
