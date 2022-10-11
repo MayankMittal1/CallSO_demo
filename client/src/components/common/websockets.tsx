@@ -3,12 +3,12 @@ import * as io from "socket.io-client";
 import { useDispatch } from "react-redux";
 import {
   acceptCallState,
-  decline,
   recieveCall,
+  reset,
 } from "../../reduxStore/callSlice";
 import { joinCall } from "../../helpers/socket";
 
-const WebSocketContext = createContext(null);
+const WebSocketContext = createContext(undefined);
 
 export { WebSocketContext };
 
@@ -27,29 +27,37 @@ export default ({ children }: any) => {
     //dispatch(updateChatLog(payload));
   };
 
-  const offerCall = (from: string, to: string) => {
+  const offerCall = (from: string, to: string, url?: string) => {
     const payload = {
       from: from,
       to: to,
+      url: url,
     };
     socket.emit("OFFER_CALL", JSON.stringify(payload));
   };
 
-  const acceptCall = (from: string, to: string, channel: string) => {
+  const acceptCall = (
+    from: string,
+    to: string,
+    channel: string,
+    url: string
+  ) => {
     const payload = {
       from: from,
       to: to,
       channel: channel,
+      url: url,
     };
     socket.emit("ACCEPT_CALL", JSON.stringify(payload));
   };
 
-  const declineCall = (from: string, to: string) => {
+  const endCall = (from: string, to: string) => {
+    console.log("EnDING");
     const payload = {
       from: from,
       to: to,
     };
-    socket.emit("DECLINE_CALL", JSON.stringify(payload));
+    socket.emit("END_CALL", JSON.stringify(payload));
   };
 
   if (!socket) {
@@ -63,18 +71,18 @@ export default ({ children }: any) => {
 
     socket.on("OFFER_CALL", (msg: any) => {
       console.log("OFFER_CALL");
-      dispatch(recieveCall(msg.from));
+      dispatch(recieveCall({ address: msg.from, url: msg.url }));
     });
 
     socket.on("ACCEPT_CALL", (msg: any) => {
       console.log("ACCEPT_CALL");
-      dispatch(acceptCallState());
+      dispatch(acceptCallState({ from: msg.to, fromUrl: msg.url }));
       joinCall(1, 2, msg.channel);
     });
 
-    socket.on("DECLINE_CALL", (msg: any) => {
+    socket.on("END_CALL", (msg: any) => {
       console.log("DECLINE_CALL");
-      dispatch(decline());
+      dispatch(reset());
     });
 
     ws = {
@@ -82,7 +90,7 @@ export default ({ children }: any) => {
       loginSockets,
       offerCall,
       acceptCall,
-      declineCall,
+      endCall,
     };
   }
 

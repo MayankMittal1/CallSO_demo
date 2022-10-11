@@ -1,10 +1,15 @@
 import { io, Socket } from "socket.io-client";
 import axios from "axios";
 import AgoraRTC, { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import { useSelector } from "react-redux";
+import { selectCallState } from "../reduxStore/callSlice";
+
 let socket: Socket;
 let publicKey: string;
 let client: IAgoraRTCClient;
-
+export const initCLient = async (_client: IAgoraRTCClient) => {
+  client = _client;
+};
 export const listenToCall = (callback: Function) => {
   if (!socket) {
     return;
@@ -60,23 +65,14 @@ export const fetchToken = (
 };
 
 export const startBasicCall = async (role: any, uid: any, channel: any) => {
-  let rtc = {
-    localAudioTrack: null as any,
-    client: null as any,
-    localVideoTrack: null as any,
-  };
+  let rtc = { localAudioTrack: null as any, client: null as any };
   const appId = "66701574e10e4079b69531faa6c01029";
-  if (!client) {
-    client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    client.setClientRole("host");
-  }
 
   let token = await fetchToken(uid, channel, role);
 
   await client.join(appId, channel, token, uid);
   rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-  rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-  await client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+  await client.publish([rtc.localAudioTrack]);
   console.log("acceptedd");
 
   client.on("user-published", async (user, mediaType) => {
@@ -87,35 +83,20 @@ export const startBasicCall = async (role: any, uid: any, channel: any) => {
       const remoteAudioTrack = user.audioTrack;
       remoteAudioTrack?.play();
     }
-    if (mediaType === "video") {
-      const remotePlayerContainer = document.getElementById(
-        "video-call"
-      ) as HTMLElement;
-
-      const remoteVideoTrack = user.videoTrack;
-      remoteVideoTrack?.play(remotePlayerContainer);
-    }
   });
 };
 
 export const joinCall = async (role: any, uid: any, channel: any) => {
-  let rtc = {
-    localAudioTrack: null as any,
-    client: null as any,
-    localVideoTrack: null as any,
-  };
+  let rtc = { localAudioTrack: null as any, client: null as any };
   const appId = "66701574e10e4079b69531faa6c01029";
   if (!client) {
     client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    client.setClientRole("host");
   }
 
   let token = await fetchToken(uid, channel, role);
 
   await client.join(appId, channel, token, uid);
   rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-  rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-  await client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
   await client.publish([rtc.localAudioTrack]);
   await client.remoteUsers.forEach(async (user) => {
     await client.subscribe(user, "audio");
@@ -124,14 +105,6 @@ export const joinCall = async (role: any, uid: any, channel: any) => {
     if (user.audioTrack) {
       const remoteAudioTrack = user.audioTrack;
       remoteAudioTrack?.play();
-    }
-    if (user.videoTrack) {
-      const remotePlayerContainer = document.getElementById(
-        "video-call"
-      ) as HTMLElement;
-
-      const remoteVideoTrack = user.videoTrack;
-      remoteVideoTrack?.play(remotePlayerContainer);
     }
   });
   client.on("user-published", async (user, mediaType) => {

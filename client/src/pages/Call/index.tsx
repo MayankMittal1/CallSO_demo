@@ -1,28 +1,66 @@
-import React from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { FaBell, FaUserAlt, FaVolumeUp, FaBeer } from "react-icons/fa";
 import {
   BsCalendar2RangeFill,
   BsFillCameraVideoFill,
   BsFillMicFill,
+  BsFillRecordCircleFill,
 } from "react-icons/bs";
 
 import AgoraUIKit from "agora-react-uikit";
+import Chatbox from "./components/chatbox";
 
 import { AiFillHome } from "react-icons/ai";
-import { MdOutlinePresentToAll, MdAnalytics } from "react-icons/md";
+import { IoMdAdd } from "react-icons/io";
+import {
+  MdOutlinePresentToAll,
+  MdAnalytics,
+  MdArrowBackIos,
+} from "react-icons/md";
+import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack } from "agora-rtc-sdk-ng";
 import { IoSettings } from "react-icons/io5";
 import { ImPhoneHangUp } from "react-icons/im";
 import { GiSoundWaves } from "react-icons/gi";
 import "./call.css";
 import { leaveCall } from "../../helpers/socket";
-import { useDispatch } from "react-redux";
-import { reset } from "../../reduxStore/callSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { reset, selectCallState } from "../../reduxStore/callSlice";
+import { HiUserGroup } from "react-icons/hi";
+import { WebSocketContext } from "../../components/common/websockets";
+import useAddress from "../../components/hooks/useAddress";
 
-const Call = ({ from }: { from: any }) => {
+const Call = () => {
+  const ws = useContext(WebSocketContext);
+  const address = useAddress();
   const dispatch = useDispatch();
+  const callState = useSelector(selectCallState);
+  const [video, setVideo] = useState(false);
+  const client: IAgoraRTCClient = callState.client;
+  let localVideoTrack: ICameraVideoTrack;
+  const toggleVideo = async () => {
+    setVideo(!video);
+    if (!video) {
+      localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+      client.publish([localVideoTrack]);
+    } else {
+      client.unpublish(client.localTracks[0]);
+      localVideoTrack.stop();
+    }
+  };
+  useEffect(() => {
+    client.on("user-published", async (user, mediaType) => {
+      await client.subscribe(user, mediaType);
+
+      if (mediaType === "video") {
+        const remoteVideo = user.videoTrack;
+        console.log("video");
+        remoteVideo?.play(document.getElementById("video-call") as HTMLElement);
+      }
+    });
+  }, []);
   return (
     <div className="new flex flex-row item-stretch">
-      <div className="flex flex-col justify-evenly functions basis-1/6 bg-transparent ml-2  ">
+      <div className="flex flex-col justify-evenly functions basis-1/6 bg-transparent   ">
         <div
           className="inline-flex shadow-md hover:shadow-lg focus:shadow-lg"
           role="group"
@@ -91,21 +129,21 @@ const Call = ({ from }: { from: any }) => {
         </div>
 
         {/* <button style={{ color: "white" }}>
-              <FaBell size={20} />
-            </button> */}
+                  <FaBell size={20} />
+                </button> */}
 
         {/* <button type="radio" className style={{ color: "white" }}>
-              <MdAnalytics size={23} />
-            </button>
-            <button className style={{ color: "white" }}>
-              <BsCalendar2RangeFill size={17} />
-            </button>
-            <button className style={{ color: "white" }}>
-              <BsFillCameraVideoFill size={20} />
-            </button>
-            <button className style={{ color: "white" }}>
-              <AiFillHome size={20} />
-            </button> */}
+                  <MdAnalytics size={23} />
+                </button>
+                <button className style={{ color: "white" }}>
+                  <BsCalendar2RangeFill size={17} />
+                </button>
+                <button className style={{ color: "white" }}>
+                  <BsFillCameraVideoFill size={20} />
+                </button>
+                <button className style={{ color: "white" }}>
+                  <AiFillHome size={20} />
+                </button> */}
 
         <div
           className="inline-flex shadow-md hover:shadow-lg focus:shadow-lg"
@@ -122,7 +160,6 @@ const Call = ({ from }: { from: any }) => {
               name="volume"
               min="0"
               max="5"
-              aria-orientation="vertical"
             />
           </button>
         </div>
@@ -153,69 +190,133 @@ const Call = ({ from }: { from: any }) => {
         </div>
       </div>
       <div className="functions basis-2/3 bg-transparent flex flex-col">
-        <div className="basis-5/6">1</div>
-        <div className="flex basis-1/6">
-          {/* <div
-                className="flex flex-row"
-                style={{ alignItems: "flex-end" }}
-              ></div> */}
-        </div>
-
-        <div className="flex flex-col flex-1 basis-2/6 mt-60 ml-80 mr-72">
-          <div className="flex mb-2">
-            <div
-              style={{
-                display: "flex",
-                color: "white",
-                marginBottom: "15px",
-                marginRight: "25px",
-              }}
-            >
-              <GiSoundWaves size={40} />
-            </div>
-            <div
-              className="space-evenly flex-col"
-              style={{
-                display: "flex",
-                color: "white",
-              }}
-            >
-              <p style={{ display: "flex", fontSize: "11px", color: "gray" }}>
-                Now
+        <div
+          className="flex flex-col basis-1/6 justify-center"
+          style={{ color: "white" }}
+        >
+          <div className="flex flex-row justify-between">
+            <div className="flex" style={{ marginTop: "10px" }}>
+              <button className="hover:scale-125">
+                <MdArrowBackIos
+                  size={20}
+                  style={{
+                    display: "flex",
+                    backgroundColor: "#354657",
+                    paddingLeft: "4px",
+                    borderRadius: "4px",
+                    marginRight: "10px",
+                    marginLeft: "28px",
+                  }}
+                />
+              </button>
+              <p>
+                You are in call with{" "}
+                {callState.fromUrl ? callState.fromUrl : callState.from}
               </p>
-              <h1 style={{ display: "flex" }}>You are in call with {from}</h1>
+            </div>
+            <div className="flex" style={{ marginTop: "10px" }}>
+              <button className="hover:scale-125">
+                <HiUserGroup
+                  size={22}
+                  style={{
+                    display: "flex",
+                    backgroundColor: "#354657",
+                    padding: "2px",
+                    borderRadius: "4px",
+                  }}
+                />
+              </button>
+            </div>
+            <div className="flex" style={{ marginTop: "10px" }}>
+              <button className="hover:scale-125">
+                <IoMdAdd
+                  size={20}
+                  style={{
+                    display: "flex",
+                    backgroundColor: "#354657",
+                    padding: "2px",
+                    borderRadius: "4px",
+                    marginRight: "10px",
+                  }}
+                />
+              </button>
+              <p style={{ marginRight: "28px" }}>Add user to the call</p>
             </div>
           </div>
           <div
+            className="flex flex-row justify-start"
             style={{
-              display: "flex",
-              width: "30vh",
-              height: "20vh",
-              backgroundColor: "white",
+              color: "#F8000F",
             }}
-            id="video-call"
-          ></div>
-          <div className="flex flex-row mt" style={{ alignItems: "end" }}>
+          >
+            <div className="flex flex-row justify-between">
+              <button className="hover:scale-125">
+                <BsFillRecordCircleFill
+                  size={20}
+                  style={{
+                    display: "flex",
+                    paddingLeft: "4px",
+                    marginRight: "7px",
+                    marginLeft: "28px",
+                    marginTop: "6px",
+                  }}
+                />
+              </button>
+              <p
+                className=" flex text-gray-300 text-sm"
+                style={{ marginTop: "10px" }}
+              >
+                REC 00:12:36
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          className="basis-2/3"
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            background: "rgba(255, 255, 255, 0.3)",
+          }}
+          id="video-call"
+        ></div>
+        {/* <div className="flex basis-1/6">
+              <div
+                    className="flex flex-row"
+                    style={{ alignItems: "flex-end" }}
+                  ></div>
+            </div> */}
+
+        <div className="flex flex-col flex-1 basis-1/6 space-between justify-center">
+          <div className="flex flex-row" style={{ alignItems: "flex-end" }}>
             <button
-              className="flex-1"
+              className="flex flex-1"
               style={{
                 color: "white",
                 justifyContent: "center",
               }}
             >
-              <MdOutlinePresentToAll size={20} className="hover:bg-slate-700" />
+              <MdOutlinePresentToAll size={20} className="hover:scale-125" />
               {/* <input type={range}/> */}
             </button>
-            <button className="flex-1" style={{ color: "white" }}>
-              <BsFillCameraVideoFill size={20} className="hover:bg-slate-700" />
-            </button>
-            <div className="flex-1 pr-10" style={{ color: "white" }}>
-              <button
+            <button
+              className="flex flex-1"
+              style={{ color: "white", justifyContent: "center" }}
+            >
+              <BsFillCameraVideoFill
+                size={20}
+                className="hover:scale-125"
                 onClick={() => {
-                  leaveCall();
-                  dispatch(reset());
+                  toggleVideo();
                 }}
-                className=""
+              />
+            </button>
+            <div
+              className="flex flex-1"
+              style={{ color: "white", justifyContent: "center" }}
+            >
+              <button
+                className="hover:scale-125"
                 style={{
                   display: "flex",
                   marginLeft: "10px",
@@ -225,6 +326,12 @@ const Call = ({ from }: { from: any }) => {
                   width: "40px",
                   height: "25px",
                   borderRadius: "10px",
+                }}
+                onClick={() => {
+                  console.log("nnn");
+                  ws.endCall(callState.from, address);
+                  client.leave();
+                  dispatch(reset());
                 }}
               >
                 <ImPhoneHangUp
@@ -237,32 +344,41 @@ const Call = ({ from }: { from: any }) => {
                 />
               </button>
             </div>
-            <button className="flex-1" style={{ color: "white" }}>
-              <BsFillMicFill size={20} className="hover:bg-slate-700" />
+            <button
+              className="flex flex-1"
+              style={{ color: "white", justifyContent: "center" }}
+            >
+              <BsFillMicFill size={20} className="hover:scale-125" />
             </button>
-            <button className="flex-1" style={{ color: "white" }}>
-              <IoSettings size={20} className="hover:bg-slate-700" />
+            <button
+              className="flex flex-1"
+              style={{ color: "white", justifyContent: "center" }}
+            >
+              <IoSettings size={20} className="hover:scale-125" />
             </button>
           </div>
         </div>
       </div>
       <div
-        className="functions flex basis-1/6 bg-transparent"
+        className="functions flex basis-2/6"
         style={{
           color: "white",
           justifyContent: "center",
-          paddingLeft: "100px",
+          padding: "0",
         }}
       >
-        <img
-          src="https://i.imgur.com/zTQR7om.png"
+        <div
+          className=""
           style={{
-            display: "flex",
-            height: "50px",
-            width: "52px",
-            marginTop: "40px",
+            // backgroundImage: "URL(https://i.imgur.com/1cr0J7k.png)",
+            width: "100%",
+            height: "100%",
+            // backgroundSize: "cover",
+            padding: "0",
           }}
-        />
+        >
+          <Chatbox />
+        </div>
       </div>
     </div>
   );

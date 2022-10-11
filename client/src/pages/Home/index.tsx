@@ -3,17 +3,15 @@ import { useDispatch, useSelector } from "react-redux";
 import { Col, Modal, ModalBody, Row } from "reactstrap";
 import styled from "styled-components";
 import { WebSocketContext } from "../../components/common/websockets";
+import AgoraRTC, { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 import useAddress from "../../components/hooks/useAddress";
-import {
-  acceptCallState,
-  decline,
-  selectCallState,
-} from "../../reduxStore/callSlice";
+import { acceptCallState, selectCallState } from "../../reduxStore/callSlice";
 import Navbar from "./components/Navbar";
 import { GoPlus } from "react-icons/go";
 import { HiMinus } from "react-icons/hi";
 import Call from "../Call";
 import { startBasicCall } from "../../helpers/socket";
+import { selectAuthState } from "../../reduxStore/authSlice";
 
 const Homepage = () => {
   const dispatch = useDispatch();
@@ -21,6 +19,7 @@ const Homepage = () => {
   const [to, setTo] = useState("");
   const address = useAddress();
   const callState = useSelector(selectCallState);
+  const { url } = useSelector(selectAuthState);
   const offerCall = () => {
     ws.offerCall(address, to);
   };
@@ -28,8 +27,10 @@ const Homepage = () => {
   const acceptCall = () => {
     let channel = "channel" + Math.floor(Math.random() * 1000000) + 1;
     startBasicCall(1, 1, channel);
-    dispatch(acceptCallState());
-    ws.acceptCall(callState.from, address, channel);
+    dispatch(
+      acceptCallState({ from: callState.from, fromUrl: callState.fromUrl })
+    );
+    ws.acceptCall(callState.from, address, channel, url);
   };
   useEffect(() => {
     console.log("call state", callState);
@@ -39,7 +40,7 @@ const Homepage = () => {
     <>
       <Navbar />
       {callState.status == "ACCEPTED" ? (
-        <Call from={callState.from} />
+        <Call />
       ) : (
         <Wrapper>
           <Heading>Future of Communication</Heading>
@@ -47,7 +48,9 @@ const Homepage = () => {
           {callState.status == "RECIEVED" ? (
             <Callbox>
               <Calling>
-                <Message>{callState.from}</Message>
+                <Message>
+                  {callState.fromUrl ? callState.fromUrl : callState.from}
+                </Message>
                 <Message>Calling</Message>
               </Calling>
               <Button

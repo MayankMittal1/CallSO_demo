@@ -1,33 +1,50 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import AgoraRTC, { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import { initCLient } from "../../helpers/socket";
 
 import {
   walletConnect,
   walletDisconnect,
   walletConnectIfCache,
 } from "../../helpers/web3Auth";
-
+const appId = "66701574e10e4079b69531faa6c01029";
 type CallStateType = {
   status: string;
   error?: string;
   from?: string;
+  fromUrl?: string;
   client?: IAgoraRTCClient;
+  remoteAudioTrack?: any;
+  remoteVideoTrack?: any;
+  localAudioTrack?: any;
+  localVideoTrack?: any;
 };
 
 const INIT_STATE: CallStateType = {
   status: "IDLE",
 };
 
-export const recieveCall = createAsyncThunk(
-  "CALL/RECIEVE_CALL",
-  (address: string, thunkAPI) => {
-    return new Promise<string>((resolve, reject) => {
-      resolve(address);
+export const initializeClient = createAsyncThunk(
+  "CLIENT/INITIALIZE",
+  (undefined, thunkAPI) => {
+    return new Promise<any>((resolve, reject) => {
+      const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      initCLient(client);
+      resolve(client);
     });
   }
 );
 
-export const decline = createAsyncThunk(
+export const recieveCall = createAsyncThunk(
+  "CALL/RECIEVE_CALL",
+  ({ address, url }: any, thunkAPI) => {
+    return new Promise<any>((resolve, reject) => {
+      resolve({ address, url });
+    });
+  }
+);
+
+export const decliIAgoraRTCClientne = createAsyncThunk(
   "CALL/RECIEVE_CALL",
   (undefined, thunkAPI) => {
     return new Promise<void>((resolve, reject) => {
@@ -38,9 +55,9 @@ export const decline = createAsyncThunk(
 
 export const acceptCallState = createAsyncThunk(
   "CALL/ACCEPT_CALL",
-  (undefined, thunkAPI) => {
-    return new Promise<void>((resolve, reject) => {
-      resolve();
+  ({ from, fromUrl }: any, thunkAPI) => {
+    return new Promise<any>((resolve, reject) => {
+      resolve({ from, fromUrl });
     });
   }
 );
@@ -59,14 +76,22 @@ const callSlice = createSlice({
     [recieveCall.fulfilled.toString()]: (state, { payload }) => {
       console.log("recieved");
       state.status = "RECIEVED";
-      state.from = payload;
+      state.from = payload.address;
+      state.fromUrl = payload.url;
     },
-    [acceptCallState.fulfilled.toString()]: (state, payload) => {
+    [acceptCallState.fulfilled.toString()]: (state, { payload }) => {
       state.status = "ACCEPTED";
+      state.from = payload.from;
+      state.fromUrl = payload.fromUrl;
     },
     [reset.fulfilled.toString()]: (state, payload) => {
       state.status = "IDLE";
       state.from = undefined;
+      state.client?.leave();
+      state.client?.unpublish();
+    },
+    [initializeClient.fulfilled.toString()]: (state, { payload }) => {
+      state.client = payload;
     },
   },
 });

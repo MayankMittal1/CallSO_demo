@@ -64,12 +64,13 @@ if (process.env.NODE_ENV === "test") {
       connection.to(data.from).emit("ACCEPT_CALL", data);
     });
 
-    connection.on("DECLINE_CALL", (data) => {
+    connection.on("END_CALL", (data) => {
       data = JSON.parse(data);
       console.log("leaving", data.to);
       users[data.to].status = "AVAILABLE";
       users[data.from].status = "AVAILABLE";
-      connection.to(data.to).emit("DECLINE_CALL", data);
+      connection.to(data.to).emit("END_CALL", data);
+      connection.to(data.from).emit("END_CALL", data);
     });
 
     connection.on("close", function () {
