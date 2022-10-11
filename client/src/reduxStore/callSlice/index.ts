@@ -18,10 +18,12 @@ type CallStateType = {
   remoteVideoTrack?: any;
   localAudioTrack?: any;
   localVideoTrack?: any;
+  chat: Array<any>;
 };
 
 const INIT_STATE: CallStateType = {
   status: "IDLE",
+  chat: [],
 };
 
 export const initializeClient = createAsyncThunk(
@@ -68,6 +70,15 @@ export const reset = createAsyncThunk("CALL/RESET", (thunkAPI) => {
   });
 });
 
+export const recieveMessage = createAsyncThunk(
+  "CALL/RECIEVE_MESSAGE",
+  (data: any, thunkAPI) => {
+    return new Promise<void>((resolve, reject) => {
+      resolve(data);
+    });
+  }
+);
+
 const callSlice = createSlice({
   name: "CALL_STATE",
   initialState: INIT_STATE,
@@ -88,10 +99,15 @@ const callSlice = createSlice({
       state.status = "IDLE";
       state.from = undefined;
       state.client?.leave();
+      state.chat = [];
       state.client?.unpublish();
     },
     [initializeClient.fulfilled.toString()]: (state, { payload }) => {
       state.client = payload;
+    },
+    [recieveMessage.fulfilled.toString()]: (state, { payload }) => {
+      console.log(payload);
+      state.chat.push(payload);
     },
   },
 });

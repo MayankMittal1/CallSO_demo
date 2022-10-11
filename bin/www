@@ -73,6 +73,13 @@ if (process.env.NODE_ENV === "test") {
       connection.to(data.from).emit("END_CALL", data);
     });
 
+    connection.on("SEND_MESSAGE", (data) => {
+      data = JSON.parse(data);
+      console.log("sending message", data.to);
+      connection.to(data.to).emit("SEND_MESSAGE", data);
+      connection.emit("SEND_MESSAGE", data);
+    });
+
     connection.on("close", function () {
       if (connection.name) {
         delete users[connection.name];

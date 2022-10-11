@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import {
   acceptCallState,
   recieveCall,
+  recieveMessage,
   reset,
 } from "../../reduxStore/callSlice";
 import { joinCall } from "../../helpers/socket";
@@ -60,6 +61,15 @@ export default ({ children }: any) => {
     socket.emit("END_CALL", JSON.stringify(payload));
   };
 
+  const sendMessage = (from: string, to: string, message: string) => {
+    const payload = {
+      from: from,
+      to: to,
+      message: message,
+    };
+    socket.emit("SEND_MESSAGE", JSON.stringify(payload));
+  };
+
   if (!socket) {
     socket = io.connect("http://localhost:3000");
     console.log("socket connecting");
@@ -80,6 +90,11 @@ export default ({ children }: any) => {
       joinCall(1, 2, msg.channel);
     });
 
+    socket.on("SEND_MESSAGE", (msg: any) => {
+      console.log(msg);
+      dispatch(recieveMessage(msg));
+    });
+
     socket.on("END_CALL", (msg: any) => {
       console.log("DECLINE_CALL");
       dispatch(reset());
@@ -91,6 +106,7 @@ export default ({ children }: any) => {
       offerCall,
       acceptCall,
       endCall,
+      sendMessage,
     };
   }
 
